@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { PeriodData } from '../types';
 
+// QUAN TRỌNG: Sử dụng API_KEY (phải khớp với tên trên Vercel)
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
 
 const responseSchema = {
