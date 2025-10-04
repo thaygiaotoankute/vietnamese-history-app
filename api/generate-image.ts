@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from "@google/genai";
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -12,7 +11,6 @@ cloudinary.config({
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -24,9 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Step 1: Check if image exists in Cloudinary
     console.log(`Checking cache for: ${cacheKey}`);
     
+    // Step 1: Check if image exists in Cloudinary
     try {
       const existingImage = await cloudinary.api.resource(cacheKey, {
         resource_type: 'image'
@@ -38,16 +36,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         cached: true 
       });
     } catch (cloudinaryError: any) {
-      // Image not found in cache, continue to generate
-      if (cloudinaryError.http_code === 404) {
-        console.log(`✗ Cache miss for: ${cacheKey}, generating new image...`);
-      } else {
+      if (cloudinaryError.http_code !== 404) {
+        // Only throw if error is NOT 404
         throw cloudinaryError;
       }
+      // If 404, continue to generate new image
+      console.log(`✗ Cache miss for: ${cacheKey}, generating new image...`);
     }
 
     // Step 2: Generate new image with Gemini
-    console.log(`Generating image with prompt: "${prompt.substring(0, 50)}..."`);
+    console.log(`Generating image with Gemini...`);
     
     const response = await ai.models.generateImages({
       model: 'imagen-4.0-generate-001',
@@ -75,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     );
 
-    console.log(`✓ Uploaded successfully: ${uploadResult.secure_url}`);
+    console.log(`✓ Uploaded: ${uploadResult.secure_url}`);
 
     return res.status(200).json({ 
       url: uploadResult.secure_url, 
