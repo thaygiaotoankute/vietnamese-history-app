@@ -36,38 +36,40 @@ const App: React.FC = () => {
 
   // Hàm load dữ liệu khi chọn thời kỳ
   const handleSelectPeriod = useCallback((period: string) => {
-    if (period === selectedPeriod && periodData && !isLoading) return;
+  console.log('🔍 Selected period:', period); // DEBUG
+  
+  if (period === selectedPeriod && periodData && !isLoading) {
+    console.log('⚠️ Same period, skipping...'); // DEBUG
+    return;
+  }
 
-    setSelectedPeriod(period);
-    setIsLoading(true);
-    setPeriodData(null);
-    setActiveTab('overview');
+  setSelectedPeriod(period);
+  setIsLoading(true);
+  setPeriodData(null);
+  setActiveTab('overview');
 
-    // Simulate loading để có hiệu ứng mượt mà
-    setTimeout(() => {
-      // Lấy dữ liệu cố định từ historicalData
-      let data = getHistoricalDataByPeriod(period);
-      
-      // Nếu chưa có dữ liệu cho thời kỳ này, dùng dữ liệu mặc định
-      if (!data) {
-        data = getDefaultPeriodData(period);
-      }
-      
-      setPeriodData(data);
-      
-      // Load ảnh bản đồ và puzzle cho thời kỳ này
-      setMapImage(MAP_IMAGES[period] || MAP_IMAGES["default"]);
-      setPuzzleImage(PUZZLE_IMAGES[period] || PUZZLE_IMAGES["default"]);
-      
-      setIsLoading(false);
-    }, 500);
-  }, [selectedPeriod, periodData, isLoading]);
-
-  // Load thời kỳ đầu tiên khi component mount
-  useEffect(() => {
-    handleSelectPeriod(HISTORICAL_PERIODS[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  setTimeout(() => {
+    // Lấy dữ liệu cố định từ historicalData
+    let data = getHistoricalDataByPeriod(period);
+    console.log('📊 Data from historicalData:', data ? '✅ Found' : '❌ Not found'); // DEBUG
+    
+    // Nếu chưa có dữ liệu cho thời kỳ này, dùng dữ liệu mặc định
+    if (!data) {
+      console.log('⚠️ Using default data for:', period); // DEBUG
+      data = getDefaultPeriodData(period);
+    } else {
+      console.log('✅ Using real data, summary:', data.summary.substring(0, 50) + '...'); // DEBUG
+    }
+    
+    setPeriodData(data);
+    
+    // Load ảnh bản đồ và puzzle cho thời kỳ này
+    setMapImage(MAP_IMAGES[period] || MAP_IMAGES["default"]);
+    setPuzzleImage(PUZZLE_IMAGES[period] || PUZZLE_IMAGES["default"]);
+    
+    setIsLoading(false);
+  }, 500);
+}, [selectedPeriod, periodData, isLoading]);
 
   // Hàm hiển thị chi tiết sự kiện/nhân vật trong modal
   const handleShowDetails = useCallback((item: HistoricalEvent | HistoricalFigure) => {
