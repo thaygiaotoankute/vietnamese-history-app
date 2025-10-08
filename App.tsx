@@ -1,8 +1,7 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import type { PeriodData, ModalContent, HistoricalEvent, HistoricalFigure } from './types';
 import { HISTORICAL_PERIODS } from './constants';
-import { fetchHistoricalData, getCachedOrGenerateImage } from './services/geminiService';
+import { getHistoricalDataByPeriod, getDefaultPeriodData } from './historicalData';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Timeline from './components/Timeline';
@@ -16,6 +15,7 @@ import SortEvents from './components/SortEvents';
 import JigsawPuzzle from './components/JigsawPuzzle';
 import MatchingGame from './components/MatchingGame';
 import MapExplorer from './components/MapExplorer';
+import Chatbot from './components/Chatbot';
 
 type ImageCache = Record<string, string>;
 
@@ -23,69 +23,42 @@ const App: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>(HISTORICAL_PERIODS[0]);
   const [periodData, setPeriodData] = useState<PeriodData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [modalContent, setModalContent] = useState<ModalContent | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [showChatbot, setShowChatbot] = useState<boolean>(false);
 
-  const [figureImages, setFigureImages] = useState<ImageCache>({});
-  const [eventImages, setEventImages] = useState<ImageCache>({});
-  const [mapImage, setMapImage] = useState<string | null>(null);
+  // Images sẽ được thêm sau, hiện tại để trống
+  const [figureImages] = useState<ImageCache>({});
+  const [eventImages] = useState<ImageCache>({});
+  const [mapImage] = useState<string | null>(null);
 
-  const handleSelectPeriod = useCallback(async (period: string) => {
+  const handleSelectPeriod = useCallback((period: string) => {
     if (period === selectedPeriod && periodData && !isLoading) return;
 
     setSelectedPeriod(period);
     setIsLoading(true);
-    setError(null);
     setPeriodData(null);
     setActiveTab('overview');
-    setFigureImages({});
-    setEventImages({});
-    setMapImage(null);
 
-    try {
-      const data = await fetchHistoricalData(period);
+    // Simulate loading để có hiệu ứng mượt mà
+    setTimeout(() => {
+      // Lấy dữ liệu cố định từ historicalData
+      let data = getHistoricalDataByPeriod(period);
+      
+      // Nếu chưa có dữ liệu cho thời kỳ này, dùng dữ liệu mặc định
+      if (!data) {
+        data = getDefaultPeriodData(period);
+      }
+      
       setPeriodData(data);
-    } catch (err) {
-      setError('Không thể tải dữ liệu. Vui lòng thử lại sau.');
-      console.error(err);
-    } finally {
       setIsLoading(false);
-    }
+    }, 500);
   }, [selectedPeriod, periodData, isLoading]);
 
   useEffect(() => {
     handleSelectPeriod(HISTORICAL_PERIODS[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
-  useEffect(() => {
-    if (!periodData) return;
-
-    // Fetch images in the background
-    const fetchImages = async () => {
-        // Fetch figure images
-        periodData.figures.forEach(async (figure) => {
-            const cacheKey = `image_figure_${figure.name.replace(/\s/g, '_')}`;
-            const url = await getCachedOrGenerateImage(cacheKey, figure.imagePrompt);
-            setFigureImages(prev => ({...prev, [figure.name]: url}));
-        });
-
-        // Fetch event images
-        periodData.events.forEach(async (event) => {
-            const cacheKey = `image_event_${event.name.replace(/\s/g, '_')}`;
-            const url = await getCachedOrGenerateImage(cacheKey, event.imagePrompt);
-            setEventImages(prev => ({...prev, [event.name]: url}));
-        });
-
-        // Fetch map image
-        const mapCacheKey = `image_map_${selectedPeriod.replace(/\s/g, '_')}`;
-        const mapUrl = await getCachedOrGenerateImage(mapCacheKey, periodData.mapData.imagePrompt);
-        setMapImage(mapUrl);
-    };
-
-    fetchImages();
-  }, [periodData, selectedPeriod]);
 
   const handleShowDetails = useCallback((item: HistoricalEvent | HistoricalFigure) => {
     const imageUrl = 'description' in item ? eventImages[item.name] : figureImages[item.name];
@@ -110,13 +83,27 @@ const App: React.FC = () => {
             <div>
               <h2 className="text-3xl font-bold text-teal-700 mb-4 border-b-2 border-teal-200 pb-2">Sự kiện nổi bật</h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {periodData.events.map((event) => <EventCard key={event.name} event={event} imageUrl={eventImages[event.name]} onShowDetails={handleShowDetails} />)}
+                {periodData.events.map((event) => (
+                  <EventCard 
+                    key={event.name} 
+                    event={event} 
+                    imageUrl={eventImages[event.name]} 
+                    onShowDetails={handleShowDetails} 
+                  />
+                ))}
               </div>
             </div>
             <div>
               <h2 className="text-3xl font-bold text-teal-700 mb-4 border-b-2 border-teal-200 pb-2">Nhân vật lịch sử</h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {periodData.figures.map((figure) => <FigureCard key={figure.name} figure={figure} imageUrl={figureImages[figure.name]} onShowDetails={handleShowDetails} />)}
+                {periodData.figures.map((figure) => (
+                  <FigureCard 
+                    key={figure.name} 
+                    figure={figure} 
+                    imageUrl={figureImages[figure.name]} 
+                    onShowDetails={handleShowDetails} 
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -146,9 +133,10 @@ const App: React.FC = () => {
 
         <div className="w-full md:w-2/3 lg:w-3/4">
           {isLoading && (
-            <div className="flex justify-center items-center h-full min-h-[50vh]"><LoadingSpinner /></div>
+            <div className="flex justify-center items-center h-full min-h-[50vh]">
+              <LoadingSpinner />
+            </div>
           )}
-          {error && <div className="text-center text-red-500 bg-red-100 p-4 rounded-lg">{error}</div>}
           {periodData && !isLoading && (
             <div>
               <ActivityTabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -163,9 +151,40 @@ const App: React.FC = () => {
 
       {modalContent && (
         <Modal title={modalContent.title} onClose={() => setModalContent(null)}>
-            {modalContent.imageUrl && <img src={modalContent.imageUrl} alt={modalContent.title} className="w-full h-64 object-cover rounded-lg mb-4"/>}
-            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{modalContent.content}</p>
+          {modalContent.imageUrl && (
+            <img 
+              src={modalContent.imageUrl} 
+              alt={modalContent.title} 
+              className="w-full h-64 object-cover rounded-lg mb-4"
+            />
+          )}
+          <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{modalContent.content}</p>
         </Modal>
+      )}
+
+      {/* Nút mở Chatbot */}
+      <button
+        onClick={() => setShowChatbot(!showChatbot)}
+        className="fixed bottom-6 right-6 bg-teal-600 hover:bg-teal-700 text-white rounded-full p-4 shadow-lg transition-all duration-300 z-50 flex items-center justify-center"
+        aria-label="Mở chatbot"
+      >
+        {showChatbot ? (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        )}
+      </button>
+
+      {/* Chatbot Component */}
+      {showChatbot && (
+        <Chatbot 
+          onClose={() => setShowChatbot(false)}
+          currentPeriod={selectedPeriod}
+        />
       )}
     </div>
   );
